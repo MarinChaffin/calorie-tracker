@@ -326,9 +326,9 @@ function HDay(props){
       {open&&<div className="hday-body">
         <div style={{marginBottom:14}}>
           <div className="section-label" style={{marginBottom:8}}>Macronutriments</div>
-          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#c8f135"}}/><span className="mini-macro-label">Protéines</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(prot/PROTEIN_TARGET*100)+"%",background:"#c8f135"}}/></div><span className="mini-macro-val">{Math.round(prot)}g/{PROTEIN_TARGET}g</span></div>
-          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#60a5fa"}}/><span className="mini-macro-label">Glucides</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(carbs/CARB_TARGET*100)+"%",background:"#60a5fa"}}/></div><span className="mini-macro-val">{Math.round(carbs)}g/{CARB_TARGET}g</span></div>
-          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#f97316"}}/><span className="mini-macro-label">Lipides</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(fat/FAT_TARGET*100)+"%",background:"#f97316"}}/></div><span className="mini-macro-val">{Math.round(fat)}g/{FAT_TARGET}g</span></div>
+          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#c8f135"}}/><span className="mini-macro-label">Protéines</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(prot/dynProteinTarget*100)+"%",background:"#c8f135"}}/></div><span className="mini-macro-val">{Math.round(prot)}g/{dynProteinTarget}g</span></div>
+          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#60a5fa"}}/><span className="mini-macro-label">Glucides</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(carbs/dynCarbTarget*100)+"%",background:"#60a5fa"}}/></div><span className="mini-macro-val">{Math.round(carbs)}g/{dynCarbTarget}g</span></div>
+          <div className="mini-macro-row"><div className="mini-dot" style={{background:"#f97316"}}/><span className="mini-macro-label">Lipides</span><div className="mini-macro-bar-bg"><div className="mini-macro-bar-fill" style={{width:clamp(fat/dynFatTarget*100)+"%",background:"#f97316"}}/></div><span className="mini-macro-val">{Math.round(fat)}g/{dynFatTarget}g</span></div>
         </div>
         {meals.length>0&&<div><div className="divider"/><div className="section-label" style={{marginBottom:8}}>Repas</div>{meals.map(function(m){return(<div key={m.id} className="h-meal-row"><span className="h-meal-name">{MEAL_ICONS[m.meal_type]||"🍽️"} {m.name}</span><span className="h-meal-kcal">{m.kcal} kcal</span></div>);})}</div>}
         {workouts.length>0&&<div><div className="divider"/><div className="section-label" style={{marginBottom:8}}>Séances</div>{workouts.map(function(w){return(<div key={w.id} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:13,fontWeight:600}}>{w.name}</span><span className="chip blue">{w.calories_burned} kcal</span></div>{w.exercises.map(function(e){return(<div key={e.id} className="h-ex-row"><div className="h-ex-name">{e.name}</div><div className="h-ex-sets">{e.sets.filter(function(s){return s.kg&&s.reps;}).map(function(s,i){return "S"+(i+1)+": "+s.kg+"kg × "+s.reps;}).join("  ·  ")}</div></div>);})}</div>);})}</div>}
@@ -405,7 +405,11 @@ function App(){
   var todayWorkouts=(data[selectedDate]&&data[selectedDate].workouts)||[];
   var allWorkouts=Object.keys(data).filter(function(k){return !k.startsWith("_");}).reduce(function(acc,k){return acc.concat((data[k]&&data[k].workouts)||[]);}, []).sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
   var wkcal=todayWorkouts.reduce(function(s,w){return s+(w.calories_burned||0);},0);
-  var adjTarget=(data[selectedDate]&&data[selectedDate].adjustedTarget)||BASE_TARGET;
+  var dynamicTarget=TDEE-goals.weeklyDeficit;
+  var adjTarget=(data[selectedDate]&&data[selectedDate].adjustedTarget)||dynamicTarget;
+  var dynProteinTarget=Math.round(PROFILE.weight*(goals.proteinPerKg||2.2));
+  var dynCarbTarget=Math.round((dynamicTarget*0.40)/4);
+  var dynFatTarget=Math.round((dynamicTarget*0.25)/9);
   var kcal=todayMeals.reduce(function(s,m){return s+m.kcal;},0);
   var prot=todayMeals.reduce(function(s,m){return s+(m.protein_g||0);},0);
   var carbs=todayMeals.reduce(function(s,m){return s+(m.carbs_g||0);},0);
@@ -552,9 +556,9 @@ function App(){
         <div className="section">
           <div className="card">
             <div className="card-title">Macronutriments</div>
-            <div className="macro-row"><span className="macro-label">Protéines</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(prot/PROTEIN_TARGET*100)+"%",background:"#c8f135"}}/></div><span className="macro-val">{Math.round(prot)}g/{PROTEIN_TARGET}g</span></div>
-            <div className="macro-row"><span className="macro-label">Glucides</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(carbs/CARB_TARGET*100)+"%",background:"#60a5fa"}}/></div><span className="macro-val">{Math.round(carbs)}g/{CARB_TARGET}g</span></div>
-            <div className="macro-row"><span className="macro-label">Lipides</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(fat/FAT_TARGET*100)+"%",background:"#f97316"}}/></div><span className="macro-val">{Math.round(fat)}g/{FAT_TARGET}g</span></div>
+            <div className="macro-row"><span className="macro-label">Protéines</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(prot/dynProteinTarget*100)+"%",background:"#c8f135"}}/></div><span className="macro-val">{Math.round(prot)}g/{dynProteinTarget}g</span></div>
+            <div className="macro-row"><span className="macro-label">Glucides</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(carbs/dynCarbTarget*100)+"%",background:"#60a5fa"}}/></div><span className="macro-val">{Math.round(carbs)}g/{dynCarbTarget}g</span></div>
+            <div className="macro-row"><span className="macro-label">Lipides</span><div className="macro-bar-bg"><div className="macro-bar-fill" style={{width:clamp(fat/dynFatTarget*100)+"%",background:"#f97316"}}/></div><span className="macro-val">{Math.round(fat)}g/{dynFatTarget}g</span></div>
           </div>
         </div>
         <div className="section">
