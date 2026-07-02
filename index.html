@@ -406,7 +406,7 @@ function App(){
   var allWorkouts=Object.keys(data).filter(function(k){return !k.startsWith("_");}).reduce(function(acc,k){return acc.concat((data[k]&&data[k].workouts)||[]);}, []).sort(function(a,b){return (a.date||"").localeCompare(b.date||"");});
   var wkcal=todayWorkouts.reduce(function(s,w){return s+(w.calories_burned||0);},0);
   var dynamicTarget=TDEE-goals.weeklyDeficit;
-  var adjTarget=(data[selectedDate]&&data[selectedDate].adjustedTarget)||dynamicTarget;
+  var adjTarget=wkcal>0?(data[selectedDate]&&data[selectedDate].adjustedTarget)||dynamicTarget:dynamicTarget;
   var dynProteinTarget=Math.round(PROFILE.weight*(goals.proteinPerKg||2.2));
   var dynCarbTarget=Math.round((dynamicTarget*0.40)/4);
   var dynFatTarget=Math.round((dynamicTarget*0.25)/9);
