@@ -192,7 +192,6 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 <script type="text/babel">
 var SUPABASE_URL = "https://wsklvtmqynlgmcgimvhl.supabase.co";
 var SUPABASE_KEY = "sb_publishable_i5W9iSL75e3QkuEX-F8mJg_ypBpndgS";
-var ANTHROPIC_KEY = "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";
 var ACCESS_CODE = "1905";
 var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 var PROFILE = { age: 26, weight: 79.6, height: 175, activity: 1.55 };
@@ -225,31 +224,43 @@ async function saveData(d){
   var res=await supabase.from("tracker_data").update({data:d,updated_at:new Date().toISOString()}).eq("id","main");
   if(res.error){console.error(res.error);throw res.error;}
 }
-async function geminiCall(parts,maxTok){
+var ANTHROPIC_KEY = "REMPLACE_PAR_TA_CLE";
+async function claudeCall(messages, maxTok){
   maxTok=maxTok||800;
-  var url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+GEMINI_KEY;
-  var r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({contents:[{parts:parts}],generationConfig:{maxOutputTokens:maxTok,temperature:0.4}})});
+  var r=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{
+      "x-api-key": ANTHROPIC_KEY,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+      "content-type": "application/json"
+    },
+    body:JSON.stringify({
+      model:"claude-sonnet-4-6",
+      max_tokens:maxTok,
+      messages:messages
+    })
+  });
   var d=await r.json();
-  var text=d&&d.candidates&&d.candidates[0]&&d.candidates[0].content&&d.candidates[0].content.parts&&d.candidates[0].content.parts[0]?d.candidates[0].content.parts[0].text:"";
+  var text=d&&d.content&&d.content[0]?d.content[0].text:"";
   return JSON.parse(text.replace(/```json?|```/g,"").trim());
 }
 async function analyzeFood(text,imgB64){
-  var parts=[];
-  if(imgB64) parts.push({inline_data:{mime_type:"image/jpeg",data:imgB64}});
-  parts.push({text:'Tu es nutritionniste expert. Retourne UNIQUEMENT un JSON valide (sans markdown) : {"name":"nom court","meal_type":"petit-déjeuner|déjeuner|dîner|collation|autre","kcal":number,"protein_g":number,"carbs_g":number,"fat_g":number,"confidence":"haute|moyenne|basse","note":"courte note"} '+(text?'Description : "'+text+'"':"Analyse l'image.")});
-  return geminiCall(parts,600);
+  var content=[];
+  if(imgB64) content.push({type:"image",source:{type:"base64",media_type:"image/jpeg",data:imgB64}});
+  content.push({type:"text",text:'Tu es nutritionniste expert. Retourne UNIQUEMENT un JSON valide (sans markdown) : {"name":"nom court","meal_type":"petit-déjeuner|déjeuner|dîner|collation|autre","kcal":number,"protein_g":number,"carbs_g":number,"fat_g":number,"confidence":"haute|moyenne|basse","note":"courte note"} '+(text?'Description : "'+text+'"':"Analyse l'image.")});
+  return claudeCall([{role:"user",content:content}],600);
 }
 async function analyzeWorkout(workout,history,goals){
   var prompt='Tu es coach sportif. Homme 26ans 79.6kg, objectif perte de gras. SÉANCE:'+JSON.stringify(workout)+' HISTORIQUE:'+JSON.stringify(history.slice(-5))+' OBJECTIFS:'+JSON.stringify(goals)+' Retourne UNIQUEMENT JSON valide (sans markdown): {"calories_burned":number,"adjusted_target":number,"performance_score":number,"trend":"progression|stable|régression","coach_message":"2-3 phrases en français","highlights":["point1","point2"],"suggestion":"conseil concret","nutrition_advice":"conseil nutrition"} adjusted_target='+BASE_TARGET+'+calories_burned*0.5';
-  return geminiCall([{text:prompt}],800);
+  return claudeCall([{role:"user",content:prompt}],800);
 }
 async function analyzeDaySummary(dayData,date){
   var meals=dayData.meals||[];
   var kcal=meals.reduce(function(s,m){return s+m.kcal;},0);
   var prot=Math.round(meals.reduce(function(s,m){return s+(m.protein_g||0);},0));
   var prompt='Coach nutrition. Retourne UNIQUEMENT JSON valide (sans markdown): {"summary":"2 phrases bilan journée","positive":"1 point positif","to_improve":"1 chose à améliorer","emoji":"1 emoji"} DATE:'+date+' KCAL:'+kcal+'/'+(dayData.adjustedTarget||BASE_TARGET)+' PROTEINES:'+prot+'g/'+PROTEIN_TARGET+'g REPAS:'+JSON.stringify(meals);
-  return geminiCall([{text:prompt}],400);
+  return claudeCall([{role:"user",content:prompt}],400);
 }
 
 function Ring(props){
