@@ -224,7 +224,7 @@ async function saveData(d){
   var res=await supabase.from("tracker_data").update({data:d,updated_at:new Date().toISOString()}).eq("id","main");
   if(res.error){console.error(res.error);throw res.error;}
 }
-var ANTHROPIC_KEY = "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";
+var ANTHROPIC_KEY = "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";
 async function claudeCall(messages, maxTok){
   maxTok=maxTok||800;
   var r=await fetch("https://api.anthropic.com/v1/messages",{
