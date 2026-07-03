@@ -698,14 +698,9 @@ function App(){
         <div className="section">
           <div className="card">
             <div className="card-title">Clé API Claude (IA)</div>
-            <div style={{fontSize:12,color:"var(--muted)",marginBottom:12,lineHeight:1.6}}>
-              Ta clé est stockée dans ta base Supabase, jamais dans le code. Elle ne sera demandée qu'une seule fois.
-            </div>
+            <div style={{fontSize:12,color:"var(--muted)",marginBottom:12,lineHeight:1.6}}>Ta clé est stockée dans Supabase, jamais dans le code. À renseigner une seule fois.</div>
             <div style={{display:"flex",gap:8}}>
-              <input type="password" className="textarea" style={{flex:1,padding:"8px 12px",height:"auto",fontFamily:"var(--mono)",fontSize:12}}
-                placeholder="sk-ant-api03-..."
-                defaultValue={data._apikey||""}
-                id="apikey-input"/>
+              <input type="password" className="textarea" style={{flex:1,padding:"8px 12px",height:"auto",fontFamily:"var(--mono)",fontSize:12}} placeholder="sk-ant-api03-..." defaultValue={data._apikey||""} id="apikey-input"/>
               <button className="btn-log-weight" onClick={async function(){
                 var val=document.getElementById("apikey-input").value.trim();
                 if(!val.startsWith("sk-ant-")){showToast("⚠️ Clé invalide");return;}
@@ -718,6 +713,9 @@ function App(){
             {data._apikey&&<div style={{marginTop:8,fontSize:11,color:"var(--lime)",fontFamily:"var(--mono)"}}>✓ Clé configurée — {data._apikey.slice(0,14)}...</div>}
           </div>
         </div>
+        <div className="section">
+          <div className="card">
+            <div className="card-title">Mon profil</div>
             <div className="goal-row"><span className="goal-label">Âge</span><span className="goal-val">26 ans</span></div>
             <div className="goal-row"><span className="goal-label">Poids</span><span className="goal-val">79.6 kg</span></div>
             <div className="goal-row"><span className="goal-label">Taille</span><span className="goal-val">175 cm</span></div>
