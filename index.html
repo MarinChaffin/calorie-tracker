@@ -307,6 +307,9 @@ function WeightChart(props){
 
 function HDay(props){
   var date=props.date,dayData=props.dayData,onPersistAI=props.onPersistAI;
+  var proteinTarget=props.proteinTarget||PROTEIN_TARGET;
+  var carbTarget=props.carbTarget||CARB_TARGET;
+  var fatTarget=props.fatTarget||FAT_TARGET;
   var _s=React.useState(false); var open=_s[0],setOpen=_s[1];
   var _a=React.useState(dayData._aiSummary||null); var ai=_a[0],setAi=_a[1];
   var _l=React.useState(false); var loading=_l[0],setLoading=_l[1];
@@ -758,7 +761,7 @@ function App(){
         <div className="section">
           <div className="section-label">Journées ({historyDays.length})</div>
           {historyDays.length===0&&<div className="empty-state">Pas encore d'historique.<br/>Reviens demain ! 😄</div>}
-          {historyDays.map(function(d){return <HDay key={d} date={d} dayData={data[d]||{}} onPersistAI={persistAI}/>;  })}
+          {historyDays.map(function(d){return <HDay key={d} date={d} dayData={data[d]||{}} onPersistAI={persistAI} proteinTarget={dynProteinTarget} carbTarget={dynCarbTarget} fatTarget={dynFatTarget}/>;  })}
         </div>
       </div>}
 
