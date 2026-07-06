@@ -418,6 +418,7 @@ function App(){
   var _wno=React.useState(""); var workoutNotes=_wno[0],setWorkoutNotes=_wno[1];
   var _lw=React.useState(false); var loadingWorkout=_lw[0],setLoadingWorkout=_lw[1];
   var _aw=React.useState(null); var aiWorkout=_aw[0],setAiWorkout=_aw[1];
+  var _ew=React.useState(null); var editingWorkout=_ew[0],setEditingWorkout=_ew[1];
   var _goals=React.useState({targetWeight:72,weeklyDeficit:500,proteinPerKg:2.2,sessionsPerWeek:4,note:""}); var goals=_goals[0],setGoals=_goals[1];
   var _wi=React.useState(""); var weightInput=_wi[0],setWeightInput=_wi[1];
   var _sd=React.useState(TODAY()); var selectedDate=_sd[0],setSelectedDate=_sd[1];
@@ -518,6 +519,23 @@ function App(){
     await persist(d);
   }
 
+  async function deleteWorkout(id){
+    var d=Object.assign({},data);
+    d[selectedDate].workouts=d[selectedDate].workouts.filter(function(w){return w.id!==id;});
+    if(d[selectedDate].workouts.length===0) delete d[selectedDate].adjustedTarget;
+    await persist(d);
+    showToast("🗑 Séance supprimée");
+  }
+
+  function startEditWorkout(w){
+    setWorkoutName(w.name);
+    setWorkoutDuration(w.duration);
+    setExercises(w.exercises&&w.exercises.length?w.exercises:[{id:1,name:"",sets:[{id:1,kg:"",reps:""}]}]);
+    setWorkoutNotes(w.notes||"");
+    setEditingWorkout(w.id);
+    setTimeout(function(){window.scrollTo({top:99999,behavior:"smooth"});},100);
+  }
+
   async function handleAnalyzeFood(){
     if(!textInput.trim()&&!imgB64) return;
     setLoadingFood(true);setAiFood(null);
@@ -544,21 +562,28 @@ function App(){
     var valid=exercises.filter(function(e){return e.name.trim()&&e.sets.some(function(s){return s.kg&&s.reps;});});
     if(!valid.length){showToast("⚠️ Ajoute au moins 1 exercice");return;}
     setLoadingWorkout(true);setAiWorkout(null);
-    var workout={id:Date.now(),date:selectedDate,name:workoutName||"Séance gym",duration:workoutDuration,exercises:valid,notes:workoutNotes};
+    var workoutId=editingWorkout||Date.now();
+    var workout={id:workoutId,date:selectedDate,name:workoutName||"Séance gym",duration:workoutDuration,exercises:valid,notes:workoutNotes};
     try{
       var analysis=await analyzeWorkout(workout,allWorkouts,goals);
       workout.calories_burned=analysis.calories_burned;
       workout.analysis=analysis;
       var d=Object.assign({},data);
       if(!d[selectedDate]) d[selectedDate]={meals:[],workouts:[]};
-      d[selectedDate].workouts=d[selectedDate].workouts.concat([workout]);
+      if(editingWorkout){
+        // Replace existing workout
+        d[selectedDate].workouts=d[selectedDate].workouts.map(function(w){return w.id===editingWorkout?workout:w;});
+      } else {
+        d[selectedDate].workouts=d[selectedDate].workouts.concat([workout]);
+      }
       d[selectedDate].adjustedTarget=analysis.adjusted_target;
       d._goals=goals;
       await persist(d);
       setAiWorkout(analysis);
       setExercises([{id:1,name:"",sets:[{id:1,kg:"",reps:""}]}]);
       setWorkoutName("");setWorkoutDuration(60);setWorkoutNotes("");
-      showToast("💪 Séance — "+analysis.calories_burned+" kcal");
+      setEditingWorkout(null);
+      showToast(editingWorkout?"✅ Séance modifiée":"💪 Séance — "+analysis.calories_burned+" kcal");
     }catch(e){showToast("❌ Erreur analyse IA");}
     finally{setLoadingWorkout(false);}
   }
@@ -696,7 +721,14 @@ function App(){
           <div className="section-label">Séances du jour</div>
           {todayWorkouts.map(function(w){return(
             <div key={w.id} className="workout-summary">
-              <div className="ws-header"><div><div className="ws-title">{w.name}</div><div className="ws-date">{w.duration} min</div></div><span className="chip blue">{w.calories_burned} kcal</span></div>
+              <div className="ws-header">
+                <div><div className="ws-title">{w.name}</div><div className="ws-date">{w.duration} min</div></div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span className="chip blue">{w.calories_burned} kcal</span>
+                  <button className="del-btn" style={{fontSize:13}} onClick={function(){startEditWorkout(w);}}>✏️</button>
+                  <button className="del-btn" onClick={function(){deleteWorkout(w.id);}}>🗑</button>
+                </div>
+              </div>
               <div className="ws-stats">
                 <div className="ws-stat"><div className="ws-stat-val">{w.exercises.length}</div><div className="ws-stat-label">Exercices</div></div>
                 <div className="ws-stat"><div className="ws-stat-val">{w.exercises.reduce(function(s,e){return s+e.sets.length;},0)}</div><div className="ws-stat-label">Séries</div></div>
@@ -708,7 +740,7 @@ function App(){
         </div>}
         <div className="section">
           <div className="card">
-            <div className="card-title">Nouvelle séance</div>
+            <div className="card-title">{editingWorkout?"Modifier la séance":"Nouvelle séance"}</div>
             <div style={{display:"flex",gap:8,marginBottom:14}}>
               <input className="textarea" style={{flex:1,padding:"8px 12px",height:"auto"}} placeholder="Nom (ex: Push day)" value={workoutName} onChange={function(e){setWorkoutName(e.target.value);}}/>
               <div style={{display:"flex",alignItems:"center",gap:6,background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:10,padding:"0 12px",flexShrink:0}}>
@@ -734,13 +766,13 @@ function App(){
                   );})}</tbody>
                 </table>
                 <button className="add-set-btn" onClick={function(){addSet(ex.id);}}>+ Série</button>
-                <button className="rest-btn" onClick={function(){startTimer(120);}}>⏱ Lancer le repos (90s)</button>
+                <button className="rest-btn" onClick={function(){startTimer(120);}}>⏱ Lancer le repos (120s)</button>
               </div>
             );})}
             <button style={{width:"100%",padding:"10px",borderRadius:10,background:"var(--surface2)",border:"1px dashed var(--border)",color:"var(--muted)",cursor:"pointer",fontSize:13,marginBottom:12}} onClick={addEx}>+ Ajouter un exercice</button>
             <textarea className="textarea" rows="2" placeholder="Notes (RPE, ressenti…)" value={workoutNotes} onChange={function(e){setWorkoutNotes(e.target.value);}} style={{marginBottom:10}}/>
             <button className="btn-main" disabled={loadingWorkout} onClick={handleSaveWorkout}>
-              {loadingWorkout?<span><span className="spinner"/> Analyse IA…</span>:"🤖 Enregistrer & analyser"}
+              {loadingWorkout?<span><span className="spinner"/> Analyse IA…</span>:editingWorkout?"🤖 Mettre à jour & analyser":"🤖 Enregistrer & analyser"}
             </button>
           </div>
         </div>
