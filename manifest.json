@@ -1,7 +1,7 @@
 {
-  "name": "Déficit Tracker",
-  "short_name": "Tracker",
-  "description": "Suivi calorique et sportif personnel",
+  "name": "Muscu Tracker",
+  "short_name": "Muscu",
+  "description": "Suivi de séances de musculation et surcharge progressive",
   "start_url": "/calorie-tracker/",
   "display": "standalone",
   "background_color": "#0e0f10",
