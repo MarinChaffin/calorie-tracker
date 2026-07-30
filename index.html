@@ -298,20 +298,74 @@ function RoutineCard(props){
 function SessionCard(props){
   var s=props.session;
   var _o=React.useState(false); var open=_o[0],setOpen=_o[1];
+  var _ed=React.useState(false); var editing=_ed[0],setEditing=_ed[1];
+  var _draft=React.useState(null); var draft=_draft[0],setDraft=_draft[1];
+  var _newEx=React.useState(""); var newExName=_newEx[0],setNewExName=_newEx[1];
   var totalSets=s.exercises.reduce(function(a,e){return a+e.sets.length;},0);
+
+  function startEdit(e){
+    e.stopPropagation();
+    setDraft({
+      title:s.routineName||"",
+      notes:s.notes||"",
+      exercises:s.exercises.map(function(ex){return {id:ex.id,name:ex.name,sets:ex.sets.map(function(st){return {kg:String(st.kg),reps:String(st.reps)};})};})
+    });
+    setEditing(true);
+    setOpen(true);
+  }
+  function cancelEdit(){setEditing(false);setDraft(null);setNewExName("");}
+  function saveEdit(){
+    props.onUpdate(s.id,{title:draft.title,notes:draft.notes,exercises:draft.exercises});
+    setEditing(false);setDraft(null);setNewExName("");
+  }
+  function updateDraftSet(exId,idx,field,val){
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
+      return e.id!==exId?e:Object.assign({},e,{sets:e.sets.map(function(st,i){return i!==idx?st:Object.assign({},st,{[field]:val});})});
+    })});});
+  }
+  function addDraftSet(exId){
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
+      if(e.id!==exId) return e;
+      var last=e.sets[e.sets.length-1];
+      return Object.assign({},e,{sets:e.sets.concat([last?Object.assign({},last):{kg:"",reps:""}])});
+    })});});
+  }
+  function removeDraftSet(exId,idx){
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
+      if(e.id!==exId||e.sets.length<=1) return e;
+      return Object.assign({},e,{sets:e.sets.filter(function(_,i){return i!==idx;})});
+    })});});
+  }
+  function updateDraftExName(exId,name){
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){return e.id!==exId?e:Object.assign({},e,{name:name});})});});
+  }
+  function removeDraftExercise(exId){
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.filter(function(e){return e.id!==exId;})});});
+  }
+  function addDraftExercise(){
+    var name=newExName.trim();
+    if(!name) return;
+    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.concat([{id:uid(),name:name,sets:[{kg:"",reps:""},{kg:"",reps:""},{kg:"",reps:""}]}])});});
+    setNewExName("");
+  }
+
   return(
     <div className="session-card">
-      <div className="session-header" onClick={function(){setOpen(!open);}}>
-        <div>
-          <div className="session-date">{s.routineName||"Séance libre"}</div>
-          <div className="session-sub">{fmtDate(s.date)} · {s.durationMin?s.durationMin+" min · ":""}{s.exercises.length} exos · {totalSets} séries</div>
+      <div className="session-header" onClick={function(){if(!editing) setOpen(!open);}}>
+        <div style={{flex:1}}>
+          {editing?
+            <input className="routine-name-input" value={draft.title} onClick={function(e){e.stopPropagation();}}
+              onChange={function(e){setDraft(function(d){return Object.assign({},d,{title:e.target.value});});}} placeholder="Nom de la séance"/>
+            :<div className="session-date">{s.routineName||"Séance libre"}</div>}
+          <div className="session-sub">{fmtDate(s.date)} · {s.durationMin?s.durationMin+" min · ":""}{(editing?draft.exercises.length:s.exercises.length)} exos · {editing?draft.exercises.reduce(function(a,e){return a+e.sets.length;},0):totalSets} séries</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <button className="del-btn" onClick={function(e){e.stopPropagation();props.onDelete(s.id);}}>🗑</button>
+          {!editing&&<button className="del-btn" onClick={startEdit}>✏️</button>}
+          {!editing&&<button className="del-btn" onClick={function(e){e.stopPropagation();props.onDelete(s.id);}}>🗑</button>}
           <span className={"session-chevron"+(open?" open":"")}>▾</span>
         </div>
       </div>
-      {open&&<div className="session-body">
+      {open&&!editing&&<div className="session-body">
         {s.exercises.map(function(e){return(
           <div key={e.id} className="h-ex-row">
             <div className="h-ex-name">{e.name}</div>
@@ -319,6 +373,40 @@ function SessionCard(props){
           </div>
         );})}
         {s.notes&&<div style={{marginTop:10,fontSize:12,color:"var(--muted)"}}>📝 {s.notes}</div>}
+      </div>}
+      {open&&editing&&<div className="session-body">
+        {draft.exercises.map(function(ex){return(
+          <div key={ex.id} className="exercise-card" style={{marginBottom:10}}>
+            <div className="ex-header">
+              <input className="textarea" style={{flex:1,padding:"6px 10px",height:"auto",fontSize:13,fontWeight:500}} value={ex.name} list="exercise-names-list"
+                onChange={function(e){updateDraftExName(ex.id,e.target.value);}}/>
+              <button className="del-btn" onClick={function(){removeDraftExercise(ex.id);}}>✕</button>
+            </div>
+            <table className="sets-table">
+              <thead><tr><th>Série</th><th>Poids (kg)</th><th>Reps</th><th></th></tr></thead>
+              <tbody>{ex.sets.map(function(st,si){return(
+                <tr key={si}>
+                  <td><span style={{color:"var(--muted)",fontSize:12}}>{si+1}</span></td>
+                  <td><input className="set-input" type="number" placeholder="0" value={st.kg} onChange={function(e){updateDraftSet(ex.id,si,"kg",e.target.value);}}/></td>
+                  <td><input className="set-input" type="number" placeholder="0" value={st.reps} onChange={function(e){updateDraftSet(ex.id,si,"reps",e.target.value);}}/></td>
+                  <td>{ex.sets.length>1&&<button className="rm-set-btn" onClick={function(){removeDraftSet(ex.id,si);}}>−</button>}</td>
+                </tr>
+              );})}</tbody>
+            </table>
+            <button className="add-set-btn" onClick={function(){addDraftSet(ex.id);}}>+ Série</button>
+          </div>
+        );})}
+        <div className="add-ex-row">
+          <input className="textarea" style={{padding:"8px 12px",height:"auto"}} placeholder="Ajouter un exercice…" list="exercise-names-list"
+            value={newExName} onChange={function(e){setNewExName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter") addDraftExercise();}}/>
+          <button className="btn-secondary" onClick={addDraftExercise}>+ Ajouter</button>
+        </div>
+        <textarea className="textarea" rows="2" placeholder="Notes…" value={draft.notes}
+          onChange={function(e){setDraft(function(d){return Object.assign({},d,{notes:e.target.value});});}} style={{margin:"10px 0"}}/>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn-secondary" style={{flex:1}} onClick={cancelEdit}>Annuler</button>
+          <button className="btn-main" style={{flex:1,marginTop:0}} onClick={saveEdit}>Enregistrer</button>
+        </div>
       </div>}
     </div>
   );
@@ -489,6 +577,16 @@ function App(){
     if(!window.confirm("Supprimer cette séance de l'historique ?")) return;
     await persist(Object.assign({},data,{sessions:sessions.filter(function(s){return s.id!==id;})}));
   }
+  async function updateSession(id,draft){
+    var cleanExercises=draft.exercises.filter(function(e){return e.name.trim();}).map(function(e){
+      return {id:e.id,name:e.name.trim(),sets:e.sets.filter(function(s){return s.kg!==""&&s.reps!=="";}).map(function(s){return {kg:+s.kg,reps:+s.reps};})};
+    }).filter(function(e){return e.sets.length>0;});
+    if(!cleanExercises.length){showToast("⚠️ La séance doit garder au moins un exercice avec une série");return;}
+    await persist(Object.assign({},data,{sessions:sessions.map(function(s){
+      return s.id!==id?s:Object.assign({},s,{routineName:draft.title.trim()||"Séance libre",notes:draft.notes,exercises:cleanExercises});
+    })}));
+    showToast("✅ Séance modifiée");
+  }
 
   async function generateBilan(){
     if(!ANTHROPIC_KEY){showToast("⚠️ Renseigne ta clé API Claude d'abord");return;}
@@ -639,7 +737,7 @@ function App(){
         <div className="section">
           <div className="section-label">Séances ({sortedSessions.length})</div>
           {sortedSessions.length===0&&<div className="empty-state">Pas encore de séance enregistrée.</div>}
-          {sortedSessions.map(function(s){return <SessionCard key={s.id} session={s} onDelete={deleteSession}/>;})}
+          {sortedSessions.map(function(s){return <SessionCard key={s.id} session={s} onDelete={deleteSession} onUpdate={updateSession}/>;})}
         </div>
       </div>}
 
@@ -694,9 +792,9 @@ function App(){
           <div className="timer-progress-fill" style={{width:(timerState.remaining/timerState.total*100)+"%",background:timerState.remaining===0?"var(--lime)":timerState.remaining<=10?"var(--amber)":"var(--lime)"}}/>
         </div>
         <div className="timer-btns">
-          {[60,90,120].map(function(s){return(
+          {[120,180].map(function(s){return(
             <button key={s} className={"timer-preset"+(timerState.total===s?" active":"")} onClick={function(){startTimer(s);}}>
-              {s}s
+              {s/60}min
             </button>
           );})}
           <button className="timer-stop" onClick={stopTimer}>✕ Stop</button>
