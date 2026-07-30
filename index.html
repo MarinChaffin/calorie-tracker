@@ -125,7 +125,9 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 .routine-name-input{background:transparent;border:none;color:var(--text);font-size:15px;font-weight:600;outline:none;flex:1;padding:2px 0;border-bottom:1px solid transparent;}
 .routine-name-input:focus{border-bottom-color:var(--lime);}
 .ex-chip-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;}
-.ex-chip{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:8px;padding:8px 10px;font-size:12px;}
+.ex-chip{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:8px;padding:2px 4px 2px 10px;font-size:12px;}
+.ex-chip-input{flex:1;background:transparent;border:none;color:var(--text);font-size:12px;font-family:var(--sans);padding:6px 0;outline:none;border-bottom:1px solid transparent;}
+.ex-chip-input:focus{border-bottom-color:var(--lime);}
 .session-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:12px;}
 .session-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;transition:background 0.15s;}
 .session-header:hover{background:var(--surface2);}
@@ -260,6 +262,24 @@ function LockScreen(props){
   );
 }
 
+function ExerciseChipEditable(props){
+  var ex=props.exercise;
+  var _n=React.useState(ex.name); var name=_n[0],setName=_n[1];
+  React.useEffect(function(){setName(ex.name);},[ex.name]);
+  function commit(){
+    if(name.trim()&&name.trim()!==ex.name) props.onRename(name.trim());
+    else setName(ex.name);
+  }
+  return(
+    <div className="ex-chip">
+      <input className="ex-chip-input" value={name} list="exercise-names-list"
+        onChange={function(e){setName(e.target.value);}} onBlur={commit}
+        onKeyDown={function(e){if(e.key==="Enter") e.target.blur();}}/>
+      <button className="del-btn" onClick={props.onRemove}>✕</button>
+    </div>
+  );
+}
+
 function RoutineCard(props){
   var routine=props.routine;
   var _n=React.useState(routine.name); var name=_n[0],setName=_n[1];
@@ -276,10 +296,7 @@ function RoutineCard(props){
       <div className="ex-chip-list">
         {routine.exercises.length===0&&<div style={{fontSize:11,color:"var(--muted)"}}>Aucun exercice pour l'instant.</div>}
         {routine.exercises.map(function(ex){return(
-          <div key={ex.id} className="ex-chip">
-            <span>{ex.name}</span>
-            <button className="del-btn" onClick={function(){props.onRemoveExercise(routine.id,ex.id);}}>✕</button>
-          </div>
+          <ExerciseChipEditable key={ex.id} exercise={ex} onRename={function(name){props.onRenameExercise(routine.id,ex.id,name);}} onRemove={function(){props.onRemoveExercise(routine.id,ex.id);}}/>
         );})}
       </div>
       <div className="add-ex-row">
@@ -298,74 +315,20 @@ function RoutineCard(props){
 function SessionCard(props){
   var s=props.session;
   var _o=React.useState(false); var open=_o[0],setOpen=_o[1];
-  var _ed=React.useState(false); var editing=_ed[0],setEditing=_ed[1];
-  var _draft=React.useState(null); var draft=_draft[0],setDraft=_draft[1];
-  var _newEx=React.useState(""); var newExName=_newEx[0],setNewExName=_newEx[1];
   var totalSets=s.exercises.reduce(function(a,e){return a+e.sets.length;},0);
-
-  function startEdit(e){
-    e.stopPropagation();
-    setDraft({
-      title:s.routineName||"",
-      notes:s.notes||"",
-      exercises:s.exercises.map(function(ex){return {id:ex.id,name:ex.name,sets:ex.sets.map(function(st){return {kg:String(st.kg),reps:String(st.reps)};})};})
-    });
-    setEditing(true);
-    setOpen(true);
-  }
-  function cancelEdit(){setEditing(false);setDraft(null);setNewExName("");}
-  function saveEdit(){
-    props.onUpdate(s.id,{title:draft.title,notes:draft.notes,exercises:draft.exercises});
-    setEditing(false);setDraft(null);setNewExName("");
-  }
-  function updateDraftSet(exId,idx,field,val){
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
-      return e.id!==exId?e:Object.assign({},e,{sets:e.sets.map(function(st,i){return i!==idx?st:Object.assign({},st,{[field]:val});})});
-    })});});
-  }
-  function addDraftSet(exId){
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
-      if(e.id!==exId) return e;
-      var last=e.sets[e.sets.length-1];
-      return Object.assign({},e,{sets:e.sets.concat([last?Object.assign({},last):{kg:"",reps:""}])});
-    })});});
-  }
-  function removeDraftSet(exId,idx){
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){
-      if(e.id!==exId||e.sets.length<=1) return e;
-      return Object.assign({},e,{sets:e.sets.filter(function(_,i){return i!==idx;})});
-    })});});
-  }
-  function updateDraftExName(exId,name){
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.map(function(e){return e.id!==exId?e:Object.assign({},e,{name:name});})});});
-  }
-  function removeDraftExercise(exId){
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.filter(function(e){return e.id!==exId;})});});
-  }
-  function addDraftExercise(){
-    var name=newExName.trim();
-    if(!name) return;
-    setDraft(function(d){return Object.assign({},d,{exercises:d.exercises.concat([{id:uid(),name:name,sets:[{kg:"",reps:""},{kg:"",reps:""},{kg:"",reps:""}]}])});});
-    setNewExName("");
-  }
-
   return(
     <div className="session-card">
-      <div className="session-header" onClick={function(){if(!editing) setOpen(!open);}}>
-        <div style={{flex:1}}>
-          {editing?
-            <input className="routine-name-input" value={draft.title} onClick={function(e){e.stopPropagation();}}
-              onChange={function(e){setDraft(function(d){return Object.assign({},d,{title:e.target.value});});}} placeholder="Nom de la séance"/>
-            :<div className="session-date">{s.routineName||"Séance libre"}</div>}
-          <div className="session-sub">{fmtDate(s.date)} · {s.durationMin?s.durationMin+" min · ":""}{(editing?draft.exercises.length:s.exercises.length)} exos · {editing?draft.exercises.reduce(function(a,e){return a+e.sets.length;},0):totalSets} séries</div>
+      <div className="session-header" onClick={function(){setOpen(!open);}}>
+        <div>
+          <div className="session-date">{s.routineName||"Séance libre"}</div>
+          <div className="session-sub">{fmtDate(s.date)} · {s.durationMin?s.durationMin+" min · ":""}{s.exercises.length} exos · {totalSets} séries</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {!editing&&<button className="del-btn" onClick={startEdit}>✏️</button>}
-          {!editing&&<button className="del-btn" onClick={function(e){e.stopPropagation();props.onDelete(s.id);}}>🗑</button>}
+          <button className="del-btn" onClick={function(e){e.stopPropagation();props.onDelete(s.id);}}>🗑</button>
           <span className={"session-chevron"+(open?" open":"")}>▾</span>
         </div>
       </div>
-      {open&&!editing&&<div className="session-body">
+      {open&&<div className="session-body">
         {s.exercises.map(function(e){return(
           <div key={e.id} className="h-ex-row">
             <div className="h-ex-name">{e.name}</div>
@@ -373,40 +336,6 @@ function SessionCard(props){
           </div>
         );})}
         {s.notes&&<div style={{marginTop:10,fontSize:12,color:"var(--muted)"}}>📝 {s.notes}</div>}
-      </div>}
-      {open&&editing&&<div className="session-body">
-        {draft.exercises.map(function(ex){return(
-          <div key={ex.id} className="exercise-card" style={{marginBottom:10}}>
-            <div className="ex-header">
-              <input className="textarea" style={{flex:1,padding:"6px 10px",height:"auto",fontSize:13,fontWeight:500}} value={ex.name} list="exercise-names-list"
-                onChange={function(e){updateDraftExName(ex.id,e.target.value);}}/>
-              <button className="del-btn" onClick={function(){removeDraftExercise(ex.id);}}>✕</button>
-            </div>
-            <table className="sets-table">
-              <thead><tr><th>Série</th><th>Poids (kg)</th><th>Reps</th><th></th></tr></thead>
-              <tbody>{ex.sets.map(function(st,si){return(
-                <tr key={si}>
-                  <td><span style={{color:"var(--muted)",fontSize:12}}>{si+1}</span></td>
-                  <td><input className="set-input" type="number" placeholder="0" value={st.kg} onChange={function(e){updateDraftSet(ex.id,si,"kg",e.target.value);}}/></td>
-                  <td><input className="set-input" type="number" placeholder="0" value={st.reps} onChange={function(e){updateDraftSet(ex.id,si,"reps",e.target.value);}}/></td>
-                  <td>{ex.sets.length>1&&<button className="rm-set-btn" onClick={function(){removeDraftSet(ex.id,si);}}>−</button>}</td>
-                </tr>
-              );})}</tbody>
-            </table>
-            <button className="add-set-btn" onClick={function(){addDraftSet(ex.id);}}>+ Série</button>
-          </div>
-        );})}
-        <div className="add-ex-row">
-          <input className="textarea" style={{padding:"8px 12px",height:"auto"}} placeholder="Ajouter un exercice…" list="exercise-names-list"
-            value={newExName} onChange={function(e){setNewExName(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter") addDraftExercise();}}/>
-          <button className="btn-secondary" onClick={addDraftExercise}>+ Ajouter</button>
-        </div>
-        <textarea className="textarea" rows="2" placeholder="Notes…" value={draft.notes}
-          onChange={function(e){setDraft(function(d){return Object.assign({},d,{notes:e.target.value});});}} style={{margin:"10px 0"}}/>
-        <div style={{display:"flex",gap:8}}>
-          <button className="btn-secondary" style={{flex:1}} onClick={cancelEdit}>Annuler</button>
-          <button className="btn-main" style={{flex:1,marginTop:0}} onClick={saveEdit}>Enregistrer</button>
-        </div>
       </div>}
     </div>
   );
@@ -524,9 +453,6 @@ function App(){
   function removeExerciseFromActive(exId){
     setActiveSession(function(s){return Object.assign({},s,{exercises:s.exercises.filter(function(e){return e.id!==exId;})});});
   }
-  function renameExerciseInActive(exId,name){
-    setActiveSession(function(s){return Object.assign({},s,{exercises:s.exercises.map(function(e){return e.id!==exId?e:Object.assign({},e,{name:name});})});});
-  }
   function addExerciseToActive(){
     var name=newExName.trim();
     if(!name) return;
@@ -576,21 +502,15 @@ function App(){
       return r.id!==routineId?r:Object.assign({},r,{exercises:r.exercises.filter(function(e){return e.id!==exId;})});
     })}));
   }
+  async function renameExerciseInRoutine(routineId,exId,name){
+    await persist(Object.assign({},data,{routines:routines.map(function(r){
+      return r.id!==routineId?r:Object.assign({},r,{exercises:r.exercises.map(function(e){return e.id!==exId?e:Object.assign({},e,{name:name});})});
+    })}));
+  }
   async function deleteSession(id){
     if(!window.confirm("Supprimer cette séance de l'historique ?")) return;
     await persist(Object.assign({},data,{sessions:sessions.filter(function(s){return s.id!==id;})}));
   }
-  async function updateSession(id,draft){
-    var cleanExercises=draft.exercises.filter(function(e){return e.name.trim();}).map(function(e){
-      return {id:e.id,name:e.name.trim(),sets:e.sets.filter(function(s){return s.kg!==""&&s.reps!=="";}).map(function(s){return {kg:+s.kg,reps:+s.reps};})};
-    }).filter(function(e){return e.sets.length>0;});
-    if(!cleanExercises.length){showToast("⚠️ La séance doit garder au moins un exercice avec une série");return;}
-    await persist(Object.assign({},data,{sessions:sessions.map(function(s){
-      return s.id!==id?s:Object.assign({},s,{routineName:draft.title.trim()||"Séance libre",notes:draft.notes,exercises:cleanExercises});
-    })}));
-    showToast("✅ Séance modifiée");
-  }
-
   async function generateBilan(){
     if(!ANTHROPIC_KEY){showToast("⚠️ Renseigne ta clé API Claude d'abord");return;}
     var since=bilans.length?bilans[0].date:addDays(TODAY(),-7);
@@ -670,8 +590,7 @@ function App(){
             return(
               <div key={ex.id} className="exercise-card">
                 <div className="ex-header">
-                  <input className="textarea" style={{flex:1,padding:"6px 10px",height:"auto",fontSize:13,fontWeight:600}} list="exercise-names-list"
-                    value={ex.name} onChange={function(e){renameExerciseInActive(ex.id,e.target.value);}}/>
+                  <span className="ex-name">{ex.name}</span>
                   <button className="del-btn" onClick={function(){removeExerciseFromActive(ex.id);}}>✕</button>
                 </div>
                 {last&&<div className="ex-last">Dernière fois : {last.map(function(s){return s.kg+"kg×"+s.reps;}).join("  ·  ")}</div>}
@@ -721,7 +640,7 @@ function App(){
         {routines.length===0&&<div className="empty-state">Crée un premier programme, puis ajoute-lui tes exercices.<br/>Tu pourras enrichir la liste au fil du temps.</div>}
         {routines.map(function(r){return(
           <RoutineCard key={r.id} routine={r} onRename={renameRoutine} onDelete={deleteRoutine}
-            onAddExercise={addExerciseToRoutine} onRemoveExercise={removeExerciseFromRoutine}/>
+            onAddExercise={addExerciseToRoutine} onRemoveExercise={removeExerciseFromRoutine} onRenameExercise={renameExerciseInRoutine}/>
         );})}
       </div>}
 
@@ -741,7 +660,7 @@ function App(){
         <div className="section">
           <div className="section-label">Séances ({sortedSessions.length})</div>
           {sortedSessions.length===0&&<div className="empty-state">Pas encore de séance enregistrée.</div>}
-          {sortedSessions.map(function(s){return <SessionCard key={s.id} session={s} onDelete={deleteSession} onUpdate={updateSession}/>;})}
+          {sortedSessions.map(function(s){return <SessionCard key={s.id} session={s} onDelete={deleteSession}/>;})}
         </div>
       </div>}
 
