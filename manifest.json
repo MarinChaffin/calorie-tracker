@@ -1,6 +1,6 @@
 {
-  "name": "Muscu Tracker",
-  "short_name": "Muscu",
+  "name": "Séances Tracker",
+  "short_name": "Séances",
   "description": "Suivi de séances de musculation et surcharge progressive",
   "start_url": "/calorie-tracker/",
   "display": "standalone",

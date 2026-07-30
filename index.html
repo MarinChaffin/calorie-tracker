@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Muscu Tracker</title>
+<title>Séances Tracker</title>
 <link rel="icon" href="data:,">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Muscu">
+<meta name="apple-mobile-web-app-title" content="Séances">
 <meta name="theme-color" content="#0e0f10">
 <link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
@@ -249,7 +249,7 @@ function LockScreen(props){
   return(
     <div className="lock-screen">
       <div className="lock-icon">🔒</div>
-      <div className="lock-title">Muscu Tracker</div>
+      <div className="lock-title">Séances Tracker</div>
       <div className="lock-sub">Entre ton code d'accès</div>
       <input className="lock-input" type="password" inputMode="numeric" maxLength="4"
         value={code} onChange={function(e){setCode(e.target.value.replace(/\D/g,""));}}
