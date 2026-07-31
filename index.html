@@ -156,22 +156,24 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 <script type="text/babel">
 var SUPABASE_URL = "https://wsklvtmqynlgmcgimvhl.supabase.co";
 var SUPABASE_KEY = "sb_publishable_i5W9iSL75e3QkuEX-F8mJg_ypBpndgS";
-var ACCESS_CODE = "1905";
+var PROFILES = {
+  "1905": {id:"main", label:null},
+  "2610": {id:"laure", label:"Laure"}
+};
 var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-var DRAFT_KEY = "wt_draft_v1";
 function TODAY(){return new Date().toISOString().split("T")[0];}
 function uid(){return Date.now()+Math.floor(Math.random()*1000);}
 function fmtDate(d){return new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"short"});}
 function fmtShort(d){return new Date(d+"T12:00:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"});}
 function addDays(s,n){var d=new Date(s+"T12:00:00");d.setDate(d.getDate()+n);return d.toISOString().split("T")[0];}
 
-async function loadData(){
-  var res=await supabase.from("tracker_data").select("data").eq("id","main").single();
+async function loadData(profileId){
+  var res=await supabase.from("tracker_data").select("data").eq("id",profileId).single();
   if(res.error){console.error(res.error);return {};}
   return res.data&&res.data.data?res.data.data:{};
 }
-async function saveData(d){
-  var res=await supabase.from("tracker_data").update({data:d,updated_at:new Date().toISOString()}).eq("id","main");
+async function saveData(profileId,d){
+  var res=await supabase.from("tracker_data").upsert({id:profileId,data:d,updated_at:new Date().toISOString()});
   if(res.error){console.error(res.error);throw res.error;}
 }
 var ANTHROPIC_KEY = "";
@@ -245,7 +247,12 @@ function LockScreen(props){
   var _c=React.useState(""); var code=_c[0],setCode=_c[1];
   var _e=React.useState(false); var err=_e[0],setErr=_e[1];
   function submit(){
-    if(code===ACCESS_CODE){sessionStorage.setItem("tracker_unlocked","1");props.onUnlock();}
+    var profile=PROFILES[code];
+    if(profile){
+      sessionStorage.setItem("tracker_unlocked","1");
+      sessionStorage.setItem("tracker_profile",JSON.stringify(profile));
+      props.onUnlock(profile);
+    }
     else{setErr(true);setCode("");setTimeout(function(){setErr(false);},1500);}
   }
   return(
@@ -343,6 +350,10 @@ function SessionCard(props){
 
 function App(){
   var _u=React.useState(function(){return sessionStorage.getItem("tracker_unlocked")==="1";}); var unlocked=_u[0],setUnlocked=_u[1];
+  var _profile=React.useState(function(){
+    try{return JSON.parse(sessionStorage.getItem("tracker_profile")||"null");}catch(e){return null;}
+  }); var profile=_profile[0],setProfile=_profile[1];
+  var draftKey="wt_draft_v1_"+(profile?profile.id:"main");
   var _tab=React.useState("session"); var tab=_tab[0],setTab=_tab[1];
   var _data=React.useState({}); var data=_data[0],setData=_data[1];
   var _loaded=React.useState(false); var loaded=_loaded[0],setLoaded=_loaded[1];
@@ -386,34 +397,34 @@ function App(){
   React.useEffect(function(){return function(){if(timerRef.current) clearInterval(timerRef.current);};},[]);
 
   React.useEffect(function(){
-    if(!unlocked) return;
-    loadData().then(function(d){
+    if(!unlocked||!profile) return;
+    loadData(profile.id).then(function(d){
       setData(d);
       if(d._apikey){ANTHROPIC_KEY=d._apikey;}
       setLoaded(true);
       try{
-        var draft=localStorage.getItem(DRAFT_KEY);
+        var draft=localStorage.getItem(draftKey);
         if(draft) setActiveSession(JSON.parse(draft));
       }catch(e){}
     });
-  },[unlocked]);
+  },[unlocked,profile]);
 
   React.useEffect(function(){
-    if(!unlocked) return;
-    var ch=supabase.channel("tc").on("postgres_changes",{event:"UPDATE",schema:"public",table:"tracker_data",filter:"id=eq.main"},function(p){if(p.new&&p.new.data) setData(p.new.data);}).subscribe();
+    if(!unlocked||!profile) return;
+    var ch=supabase.channel("tc-"+profile.id).on("postgres_changes",{event:"UPDATE",schema:"public",table:"tracker_data",filter:"id=eq."+profile.id},function(p){if(p.new&&p.new.data) setData(p.new.data);}).subscribe();
     return function(){supabase.removeChannel(ch);};
-  },[unlocked]);
+  },[unlocked,profile]);
 
   React.useEffect(function(){
-    if(activeSession) localStorage.setItem(DRAFT_KEY,JSON.stringify(activeSession));
-    else localStorage.removeItem(DRAFT_KEY);
-  },[activeSession]);
+    if(activeSession) localStorage.setItem(draftKey,JSON.stringify(activeSession));
+    else localStorage.removeItem(draftKey);
+  },[activeSession,draftKey]);
 
   function showToast(msg){setToast(msg);setTimeout(function(){setToast(null);},2800);}
 
   async function persist(nd){
     setData(nd); setSyncState("syncing");
-    try{await saveData(nd);setSyncState("ok");}
+    try{await saveData(profile.id,nd);setSyncState("ok");}
     catch(e){setSyncState("err");showToast("⚠️ Erreur synchro");}
   }
 
@@ -539,7 +550,7 @@ function App(){
   var sortedSessions=sessions.slice().sort(function(a,b){return b.date.localeCompare(a.date)||b.id-a.id;});
   var trendColor={progression:"lime",stable:"blue",régression:"red"};
 
-  if(!unlocked) return <LockScreen onUnlock={function(){setUnlocked(true);}}/>;
+  if(!unlocked||!profile) return <LockScreen onUnlock={function(p){setProfile(p);setUnlocked(true);}}/>;
   if(!loaded) return(
     <div className="lock-screen">
       <span className="spinner-purple" style={{width:24,height:24,borderWidth:3}}/>
@@ -556,6 +567,7 @@ function App(){
         <span className="header-title">
           <span className={"sync-dot "+syncState}/>
           {tab==="session"?"Séance":tab==="program"?"Programme":tab==="history"?"Historique":"Bilan IA"}
+          {profile.label?" · "+profile.label:""}
         </span>
         <span className="header-date">{new Date().toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
       </div>
