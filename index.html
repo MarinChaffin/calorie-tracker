@@ -45,6 +45,8 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 .header{padding:20px 18px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:var(--bg);}
 .header-title{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);font-family:var(--mono);}
 .header-date{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.header-switch-btn{background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--muted);font-size:13px;line-height:1;padding:5px 7px;cursor:pointer;}
+.header-switch-btn:hover{color:var(--lime);border-color:var(--lime);}
 .sync-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:5px;}
 .sync-dot.ok{background:var(--lime);}
 .sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite;}
@@ -537,6 +539,19 @@ function App(){
       showToast("✅ Copié chez "+otherProfileLabel());
     }catch(e){showToast("❌ Erreur de copie");}
   }
+  function switchProfile(){
+    if(activeSession){
+      if(!window.confirm("Changer de profil ? La séance en cours sera abandonnée.")) return;
+      localStorage.removeItem("wt_draft_v1_"+profile.id);
+    }
+    sessionStorage.removeItem("tracker_unlocked");
+    sessionStorage.removeItem("tracker_profile");
+    setActiveSession(null);
+    setData({});
+    setLoaded(false);
+    setProfile(null);
+    setUnlocked(false);
+  }
   async function deleteSession(id){
     if(!window.confirm("Supprimer cette séance de l'historique ?")) return;
     await persist(Object.assign({},data,{sessions:sessions.filter(function(s){return s.id!==id;})}));
@@ -588,7 +603,10 @@ function App(){
           {tab==="session"?"Séance":tab==="program"?"Programme":tab==="history"?"Historique":"Bilan IA"}
           {profile.label?" · "+profile.label:""}
         </span>
-        <span className="header-date">{new Date().toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
+        <span style={{display:"flex",alignItems:"center",gap:10}}>
+          <span className="header-date">{new Date().toLocaleDateString("fr-FR",{weekday:"short",day:"numeric",month:"short"})}</span>
+          <button className="header-switch-btn" onClick={switchProfile} title="Changer de profil">⇄</button>
+        </span>
       </div>
 
       {tab==="session"&&<div>
