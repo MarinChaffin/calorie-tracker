@@ -122,7 +122,7 @@ html,body{background:var(--bg);color:var(--text);font-family:var(--sans);min-hei
 .add-ex-row{display:flex;gap:8px;margin-top:4px;}
 .add-ex-check{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-top:8px;}
 .routine-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;}
-.routine-name-input{background:transparent;border:none;color:var(--text);font-size:15px;font-weight:600;outline:none;flex:1;padding:2px 0;border-bottom:1px solid transparent;}
+.routine-name-input{background:transparent;border:none;color:var(--text);font-size:15px;font-weight:600;outline:none;flex:1;min-width:0;padding:2px 0;border-bottom:1px solid transparent;}
 .routine-name-input:focus{border-bottom-color:var(--lime);}
 .ex-chip-list{display:flex;flex-direction:column;gap:6px;margin:12px 0;}
 .ex-chip{display:flex;justify-content:space-between;align-items:center;background:var(--surface2);border-radius:8px;padding:2px 4px 2px 10px;font-size:12px;}
@@ -290,14 +290,21 @@ function ExerciseChipEditable(props){
 function RoutineCard(props){
   var routine=props.routine;
   var _n=React.useState(routine.name); var name=_n[0],setName=_n[1];
+  var _cp=React.useState(false); var copying=_cp[0],setCopying=_cp[1];
   function commitName(){
     if(name.trim()&&name.trim()!==routine.name) props.onRename(routine.id,name.trim());
     else setName(routine.name);
+  }
+  async function copy(){
+    setCopying(true);
+    await props.onCopyOther(routine);
+    setCopying(false);
   }
   return(
     <div className="routine-card">
       <div style={{display:"flex",alignItems:"center",gap:8}}>
         <input className="routine-name-input" value={name} onChange={function(e){setName(e.target.value);}} onBlur={commitName}/>
+        {props.otherLabel&&<button className="btn-secondary" style={{whiteSpace:"nowrap",flexShrink:0}} disabled={copying} onClick={copy}>{copying?"…":"→ "+props.otherLabel}</button>}
         <button className="btn-danger" onClick={function(){props.onDelete(routine.id);}}>Supprimer</button>
       </div>
       <div className="ex-chip-list">
@@ -518,6 +525,18 @@ function App(){
       return r.id!==routineId?r:Object.assign({},r,{exercises:r.exercises.map(function(e){return e.id!==exId?e:Object.assign({},e,{name:name});})});
     })}));
   }
+  function otherProfileId(){return profile.id==="main"?"laure":"main";}
+  function otherProfileLabel(){return profile.id==="main"?"Laure":"toi";}
+  async function copyRoutineToOther(routine){
+    var targetId=otherProfileId();
+    try{
+      var targetData=await loadData(targetId);
+      var copy={id:uid(),name:routine.name,exercises:routine.exercises.map(function(e){return {id:uid(),name:e.name};})};
+      var nd=Object.assign({},targetData,{routines:(targetData.routines||[]).concat([copy])});
+      await saveData(targetId,nd);
+      showToast("✅ Copié chez "+otherProfileLabel());
+    }catch(e){showToast("❌ Erreur de copie");}
+  }
   async function deleteSession(id){
     if(!window.confirm("Supprimer cette séance de l'historique ?")) return;
     await persist(Object.assign({},data,{sessions:sessions.filter(function(s){return s.id!==id;})}));
@@ -652,7 +671,8 @@ function App(){
         {routines.length===0&&<div className="empty-state">Crée un premier programme, puis ajoute-lui tes exercices.<br/>Tu pourras enrichir la liste au fil du temps.</div>}
         {routines.map(function(r){return(
           <RoutineCard key={r.id} routine={r} onRename={renameRoutine} onDelete={deleteRoutine}
-            onAddExercise={addExerciseToRoutine} onRemoveExercise={removeExerciseFromRoutine} onRenameExercise={renameExerciseInRoutine}/>
+            onAddExercise={addExerciseToRoutine} onRemoveExercise={removeExerciseFromRoutine} onRenameExercise={renameExerciseInRoutine}
+            onCopyOther={copyRoutineToOther} otherLabel={otherProfileLabel()}/>
         );})}
       </div>}
 
