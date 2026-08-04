@@ -181,7 +181,7 @@ async function saveData(profileId,d){
 var ANTHROPIC_KEY = "";
 async function claudeCall(messages, maxTok){
   if(!ANTHROPIC_KEY){throw new Error("Clé API Claude manquante");}
-  maxTok=maxTok||2000;
+  maxTok=maxTok||4096;
   var r=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
     headers:{
@@ -201,13 +201,21 @@ async function claudeCall(messages, maxTok){
     var blockTypes=blocks.map(function(b){return b.type;}).join(", ")||"aucun";
     throw new Error("Réponse Claude sans texte exploitable (blocs: "+blockTypes+", stop_reason: "+d.stop_reason+")");
   }
-  return JSON.parse(textBlock.text.replace(/```json?|```/g,"").trim());
+  if(d.stop_reason==="max_tokens"){throw new Error("Réponse coupée (trop long à analyser en une fois) — réessaie, ça vise moins large la prochaine fois.");}
+  var cleaned=textBlock.text.replace(/```json?|```/g,"").trim();
+  try{
+    return JSON.parse(cleaned);
+  }catch(e){
+    console.error("JSON invalide reçu de Claude:",cleaned);
+    throw new Error("Réponse Claude invalide (JSON malformé)");
+  }
 }
 async function analyzeBilan(sessions){
   var prompt='Tu es coach de musculation expert en surcharge progressive. Voici mes séances récentes (JSON, kg et reps par série) : '+JSON.stringify(sessions)+
     ' Analyse ma progression exercice par exercice (compare les séances dans le temps : poids, reps, volume). '+
-    'Retourne UNIQUEMENT un JSON valide (sans markdown) : {"summary":"2-3 phrases bilan global de la période, en français","per_exercise":[{"name":"nom exercice","trend":"progression|stable|régression","note":"note courte et concrète, ex: +5kg sur la barre en 2 séances"}],"advice":"un conseil concret et actionnable pour la semaine prochaine"}';
-  return claudeCall([{role:"user",content:prompt}],2000);
+    'Limite-toi aux 8 exercices les plus significatifs si besoin (pas la peine d\'être exhaustif). '+
+    'Retourne UNIQUEMENT un JSON valide et complet (sans markdown, sans troncature) : {"summary":"2-3 phrases bilan global de la période, en français","per_exercise":[{"name":"nom exercice","trend":"progression|stable|régression","note":"note courte et concrète, ex: +5kg sur la barre en 2 séances"}],"advice":"un conseil concret et actionnable pour la semaine prochaine"}';
+  return claudeCall([{role:"user",content:prompt}],4096);
 }
 
 function getLastPerformance(sessions,name){
