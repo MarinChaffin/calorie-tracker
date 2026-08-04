@@ -194,8 +194,10 @@ async function claudeCall(messages, maxTok){
   });
   var d=await r.json();
   if(!r.ok||d.type==="error"){throw new Error((d.error&&d.error.message)||("Erreur API Claude ("+r.status+")"));}
-  var text=d&&d.content&&d.content[0]?d.content[0].text:"";
-  return JSON.parse(text.replace(/```json?|```/g,"").trim());
+  var blocks=(d&&d.content)||[];
+  var textBlock=blocks.filter(function(b){return b.type==="text"&&b.text;}).pop();
+  if(!textBlock){throw new Error("Réponse Claude sans texte exploitable");}
+  return JSON.parse(textBlock.text.replace(/```json?|```/g,"").trim());
 }
 async function analyzeBilan(sessions){
   var prompt='Tu es coach de musculation expert en surcharge progressive. Voici mes séances récentes (JSON, kg et reps par série) : '+JSON.stringify(sessions)+
