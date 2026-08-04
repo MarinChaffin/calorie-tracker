@@ -1,5 +1,5 @@
 // Service Worker — cache minimal pour PWA installable
-var CACHE = "deficit-tracker-v1";
+var CACHE = "deficit-tracker-v2";
 var ASSETS = [
   "/calorie-tracker/",
   "/calorie-tracker/index.html"
