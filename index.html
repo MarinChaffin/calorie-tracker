@@ -180,7 +180,7 @@ async function saveData(profileId,d){
 }
 var ANTHROPIC_KEY = "";
 async function claudeCall(messages, maxTok){
-  if(!ANTHROPIC_KEY){throw new Error("no_key");}
+  if(!ANTHROPIC_KEY){throw new Error("Clé API Claude manquante");}
   maxTok=maxTok||900;
   var r=await fetch("https://api.anthropic.com/v1/messages",{
     method:"POST",
@@ -190,9 +190,10 @@ async function claudeCall(messages, maxTok){
       "anthropic-dangerous-direct-browser-access": "true",
       "content-type": "application/json"
     },
-    body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,messages:messages})
+    body:JSON.stringify({model:"claude-sonnet-5",max_tokens:maxTok,messages:messages})
   });
   var d=await r.json();
+  if(!r.ok||d.type==="error"){throw new Error((d.error&&d.error.message)||("Erreur API Claude ("+r.status+")"));}
   var text=d&&d.content&&d.content[0]?d.content[0].text:"";
   return JSON.parse(text.replace(/```json?|```/g,"").trim());
 }
@@ -567,7 +568,7 @@ function App(){
       var bilan={id:uid(),date:TODAY(),generated_at:new Date().toISOString(),summary:r.summary,advice:r.advice,per_exercise:r.per_exercise||[]};
       await persist(Object.assign({},data,{_bilans:[bilan].concat(bilans)}));
       showToast("🤖 Bilan généré");
-    }catch(e){showToast("❌ Erreur génération bilan");}
+    }catch(e){console.error("Erreur bilan IA:",e);showToast("❌ "+(e&&e.message?e.message:"Erreur génération bilan"));}
     finally{setGeneratingBilan(false);}
   }
 
